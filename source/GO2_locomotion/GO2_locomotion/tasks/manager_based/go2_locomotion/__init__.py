@@ -3,23 +3,10 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-import gymnasium as gym
+"""Locomotion environments with velocity-tracking commands.
 
-from . import agents
+These environments are based on the `legged_gym` environments provided by Rudin et al.
 
-##
-# Register Gym environments.
-##
-
-
-gym.register(
-    id="Template-Go2-Locomotion-v0",
-    entry_point="isaaclab.envs:ManagerBasedRLEnv",
-    disable_env_checker=True,
-    kwargs={
-        "env_cfg_entry_point": f"{__name__}.go2_locomotion_env_cfg:Go2LocomotionEnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
-        "skrl_amp_cfg_entry_point": f"{agents.__name__}:skrl_amp_cfg.yaml",
-        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_ppo_cfg.yaml",
-    },
-)
+Reference:
+    https://github.com/leggedrobotics/legged_gym
+"""
