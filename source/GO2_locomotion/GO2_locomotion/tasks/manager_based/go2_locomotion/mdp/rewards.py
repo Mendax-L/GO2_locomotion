@@ -8,6 +8,9 @@
 The functions can be passed to the :class:`isaaclab.managers.RewardTermCfg` object to
 specify the reward function and its parameters.
 """
+# 可用于为学习环境定义奖励的通用函数。
+#
+# 这些函数可以传递给 isaaclab.managers.RewardTermCfg 来指定奖励函数及其参数。
 
 from __future__ import annotations
 
@@ -34,13 +37,20 @@ def feet_air_time(
 
     If the commands are small (i.e. the agent is not supposed to take a step), then the reward is zero.
     """
+    # 奖励搜索步长较长的步伐（使用 L2 核函数）。
+    #
+    # 如果命令很小（例如代理不需要迈步），则奖励为零。
+
     # extract the used quantities (to enable type-hinting)
+    # 提取所需量（以启用类型提示）
     contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
     # compute the reward
+    # 计算奖励
     first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, sensor_cfg.body_ids]
     last_air_time = contact_sensor.data.last_air_time[:, sensor_cfg.body_ids]
     reward = torch.sum((last_air_time - threshold) * first_contact, dim=1)
     # no reward for zero command
+    # 对于零命令不奖励
     reward *= torch.norm(env.command_manager.get_command(command_name)[:, :2], dim=1) > 0.1
     return reward
 
@@ -53,8 +63,12 @@ def feet_air_time_positive_biped(env, command_name: str, threshold: float, senso
 
     If the commands are small (i.e. the agent is not supposed to take a step), then the reward is zero.
     """
+    # 对双足机器人奖励较长的空中时间（步幅），并鼓励单脚支撑时长。
+    #
+    # 如果命令很小，则奖励为零。
     contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
     # compute the reward
+    # 计算奖励
     air_time = contact_sensor.data.current_air_time[:, sensor_cfg.body_ids]
     contact_time = contact_sensor.data.current_contact_time[:, sensor_cfg.body_ids]
     in_contact = contact_time > 0.0
@@ -63,6 +77,7 @@ def feet_air_time_positive_biped(env, command_name: str, threshold: float, senso
     reward = torch.min(torch.where(single_stance.unsqueeze(-1), in_mode_time, 0.0), dim=1)[0]
     reward = torch.clamp(reward, max=threshold)
     # no reward for zero command
+    # 对于零命令不奖励
     reward *= torch.norm(env.command_manager.get_command(command_name)[:, :2], dim=1) > 0.1
     return reward
 
@@ -74,7 +89,11 @@ def feet_slide(env, sensor_cfg: SceneEntityCfg, asset_cfg: SceneEntityCfg = Scen
     norm of the linear velocity of the feet multiplied by a binary contact sensor. This ensures that the
     agent is penalized only when the feet are in contact with the ground.
     """
+    # 惩罚脚部打滑。
+    #
+    # 该函数通过脚的线速度范数与接触传感器的二值结果相乘来计算惩罚，保证只有在脚与地面接触时才惩罚。
     # Penalize feet sliding
+    # 惩罚脚部滑动
     contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
     contacts = contact_sensor.data.net_forces_w_history[:, :, sensor_cfg.body_ids, :].norm(dim=-1).max(dim=1)[0] > 1.0
     asset = env.scene[asset_cfg.name]
@@ -88,7 +107,9 @@ def track_lin_vel_xy_yaw_frame_exp(
     env, std: float, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     """Reward tracking of linear velocity commands (xy axes) in the gravity aligned robot frame using exponential kernel."""
+    # 使用指数核在重力对齐的机器人坐标系中奖励线速度（xy）命令的跟踪表现。
     # extract the used quantities (to enable type-hinting)
+    # 提取所需量（以启用类型提示）
     asset = env.scene[asset_cfg.name]
     vel_yaw = quat_apply_inverse(yaw_quat(asset.data.root_quat_w), asset.data.root_lin_vel_w[:, :3])
     lin_vel_error = torch.sum(
@@ -101,7 +122,9 @@ def track_ang_vel_z_world_exp(
     env, command_name: str, std: float, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     """Reward tracking of angular velocity commands (yaw) in world frame using exponential kernel."""
+    # 在世界坐标系中使用指数核奖励角速度（偏航）命令的跟踪表现。
     # extract the used quantities (to enable type-hinting)
+    # 提取所需量（以启用类型提示）
     asset = env.scene[asset_cfg.name]
     ang_vel_error = torch.square(env.command_manager.get_command(command_name)[:, 2] - asset.data.root_ang_vel_w[:, 2])
     return torch.exp(-ang_vel_error / std**2)
@@ -111,6 +134,8 @@ def stand_still_joint_deviation_l1(
     env, command_name: str, command_threshold: float = 0.06, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
 ) -> torch.Tensor:
     """Penalize offsets from the default joint positions when the command is very small."""
+    # 当命令接近零时，惩罚关节偏离默认位置的 L1 范数。
     command = env.command_manager.get_command(command_name)
     # Penalize motion when command is nearly zero.
+    # 当命令几乎为零时惩罚运动
     return mdp.joint_deviation_l1(env, asset_cfg) * (torch.norm(command[:, :2], dim=1) < command_threshold)
